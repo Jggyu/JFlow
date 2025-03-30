@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, memo, useCallback } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import InfinityLogo from './InfinityLogo';
@@ -14,67 +14,63 @@ const SecureRandom = {
     }
     return Math.random();
   },
-
   range(min, max) {
     return min + this.random() * (max - min);
   },
-
   integer(min, max) {
     return Math.floor(this.range(min, max + 1));
   },
-
   fromArray(array) {
     return array[this.integer(0, array.length - 1)];
   }
 };
 
-function HeroSection({ user }) {
+const HeroSection = memo(({ user }) => {
   const heroRef = useRef(null);
   const particlesRef = useRef(null);
+  const particlesCreated = useRef(false);
+  
+  const createParticles = useCallback(() => {
+    const particles = particlesRef.current;
+    if (!particles || particlesCreated.current) return;
+    
+    const fragment = document.createDocumentFragment();
+    const particleCount = 30; // 약간 감소
+    const colors = [
+      'rgba(145, 84, 247, 0.8)',
+      'rgba(77, 115, 255, 0.8)',
+      'rgba(236, 72, 153, 0.8)',
+    ];
+    
+    for (let i = 0; i < particleCount; i++) {
+      const particle = document.createElement('div');
+      const size = SecureRandom.range(1, 4);
+      const color = SecureRandom.fromArray(colors);
+      const validatedSize = Math.max(1, Math.min(4, size));
+      
+      Object.assign(particle.style, {
+        width: `${validatedSize}px`,
+        height: `${validatedSize}px`,
+        backgroundColor: color,
+        left: `${SecureRandom.range(0, 100)}%`,
+        top: `${SecureRandom.range(0, 100)}%`,
+        opacity: SecureRandom.range(0.3, 0.8),
+        borderRadius: '50%',
+        position: 'absolute',
+        filter: 'blur(1px)',
+        boxShadow: `0 0 ${validatedSize * 2}px ${color}`,
+        animationDuration: `${SecureRandom.range(30, 60)}s`, // 애니메이션 기간 감소
+        animationDelay: `${SecureRandom.range(0, 3)}s`, // 지연 시간 감소
+      });
+      
+      fragment.appendChild(particle);
+    }
+    
+    particles.appendChild(fragment);
+    particlesCreated.current = true;
+  }, []);
   
   useEffect(() => {
-    const createParticles = () => {
-      const particles = particlesRef.current;
-      if (!particles) return;
-      
-      const particleCount = 40;
-      const colors = [
-        'rgba(145, 84, 247, 0.8)',
-        'rgba(77, 115, 255, 0.8)',
-        'rgba(236, 72, 153, 0.8)',
-      ];
-      
-      for (let i = 0; i < particleCount; i++) {
-        const particle = document.createElement('div');
-        if (!particle) continue;
-        
-        particle.className = 'hero-particle';
-        
-        const size = SecureRandom.range(1, 4);
-        const color = SecureRandom.fromArray(colors);
-        const validatedSize = Math.max(1, Math.min(4, size));
-        
-        Object.assign(particle.style, {
-          width: `${validatedSize}px`,
-          height: `${validatedSize}px`,
-          backgroundColor: color,
-          left: `${SecureRandom.range(0, 100)}%`,
-          top: `${SecureRandom.range(0, 100)}%`,
-          opacity: SecureRandom.range(0.3, 0.8),
-          borderRadius: '50%',
-          position: 'absolute',
-          filter: 'blur(1px)',
-          boxShadow: `0 0 ${validatedSize * 2}px ${color}`,
-          animationDuration: `${SecureRandom.range(30, 80)}s`,
-          animationDelay: `${SecureRandom.range(0, 5)}s`,
-        });
-        
-        if (particles.appendChild) {
-          particles.appendChild(particle);
-        }
-      }
-    };
-    
     try {
       createParticles();
     } catch (error) {
@@ -82,68 +78,69 @@ function HeroSection({ user }) {
     }
     
     const ctx = gsap.context(() => {
-      const titleChars = gsap.utils.toArray('.hero-title .char');
-      gsap.set(titleChars, { opacity: 0, y: 50 });
+      let titleChars;
+      const titleElement = heroRef.current.querySelector('.hero-title');
       
-      gsap.to(titleChars, {
-        opacity: 1,
-        y: 0,
-        duration: 0.8,
-        stagger: 0.03,
-        ease: "back.out(1.7)",
-        delay: 0.5
-      });
+      if (titleElement) {
+        let html = '';
+        const text = titleElement.innerText;
+        
+        for (let i = 0; i < text.length; i++) {
+          if (text[i] === ' ') {
+            html += '<span class="char">&nbsp;</span>';
+          } else {
+            html += `<span class="char">${text[i]}</span>`;
+          }
+        }
+        
+        titleElement.innerHTML = html;
+        titleChars = gsap.utils.toArray('.hero-title .char');
+        
+        gsap.set(titleChars, { opacity: 0, y: 50 });
+        
+        gsap.to(titleChars, {
+          opacity: 1,
+          y: 0,
+          duration: 0.6, // 애니메이션 시간 단축
+          stagger: 0.02, // 간격 감소
+          ease: "back.out(1.5)", // 이징 단순화
+          delay: 0.3 // 지연 시간 감소
+        });
+      }
       
       gsap.from(".hero-subtitle", {
         opacity: 0,
         y: 30,
-        duration: 1,
-        delay: 1.5,
-        ease: "power3.out"
+        duration: 0.8, // 시간 감소
+        delay: 1.2, // 지연 시간 감소
+        ease: "power2.out" // 더 가벼운 이징
       });
       
       gsap.from(".hero-decoration", {
         opacity: 0,
         scale: 0,
-        duration: 1.5,
-        delay: 1,
-        stagger: 0.2,
-        ease: "elastic.out(1, 0.5)"
+        duration: 1,
+        delay: 0.8,
+        stagger: 0.15,
+        ease: "back.out(1.2)" // 더 가벼운 이징
       });
       
-      gsap.to(".parallax-bg", {
-        y: 200,
-        scrollTrigger: {
-          trigger: heroRef.current,
-          start: "top top",
-          end: "bottom top",
-          scrub: true
+      ScrollTrigger.create({
+        trigger: heroRef.current,
+        start: "top top",
+        end: "bottom top",
+        scrub: true,
+        onUpdate: (self) => {
+          const parallaxBg = heroRef.current.querySelector('.parallax-bg');
+          if (parallaxBg) {
+            gsap.set(parallaxBg, { y: 200 * self.progress });
+          }
         }
       });
     }, heroRef);
     
-    const splitText = (selector) => {
-      const element = document.querySelector(selector);
-      if (!element) return;
-      
-      const text = element.innerText;
-      let html = '';
-      
-      for (let i = 0; i < text.length; i++) {
-        if (text[i] === ' ') {
-          html += '<span class="char">&nbsp;</span>';
-        } else {
-          html += `<span class="char">${text[i]}</span>`;
-        }
-      }
-      
-      element.innerHTML = html;
-    };
-    
-    splitText('.hero-title');
-    
     return () => ctx.revert();
-  }, []);
+  }, [createParticles]);
   
   return (
     <div 
@@ -157,9 +154,9 @@ function HeroSection({ user }) {
           }
           @keyframes float {
             0% { transform: translate(0, 0); }
-            25% { transform: translate(-50px, 50px); }
-            50% { transform: translate(50px, -50px); }
-            75% { transform: translate(-25px, -25px); }
+            25% { transform: translate(-40px, 40px); }
+            50% { transform: translate(40px, -40px); }
+            75% { transform: translate(-20px, -20px); }
             100% { transform: translate(0, 0); }
           }
         `}</style>
@@ -197,6 +194,6 @@ function HeroSection({ user }) {
       </div>
     </div>
   );
-}
+});
 
 export default HeroSection;
