@@ -74,21 +74,12 @@ pipeline {
                             ssh-keyscan -p ${SERVER_PORT} -H ${SERVER_IP} > ~/.ssh/known_hosts
                             chmod 644 ~/.ssh/known_hosts
                             
-                            echo "=== 배포 시작 ==="
-                            
                             ssh -p ${SERVER_PORT} ${SERVER_USER}@${SERVER_IP} "
-                                echo '=== 서버 연결 성공 ===' &&
-                                
                                 docker login ${REGISTRY} -u ${HARBOR_USER} -p ${HARBOR_PASS} &&
-                                
                                 docker pull ${DOCKER_IMAGE}:${BUILD_NUMBER} &&
-                                
                                 docker stop jflow-app || true &&
                                 docker rm jflow-app || true &&
-                                
-                                docker run -d --name jflow-app -p 80:80 --restart unless-stopped ${DOCKER_IMAGE}:${BUILD_NUMBER} &&
-                                
-                                echo '=== 배포 완료 ==='
+                                docker run -d --name jflow-app -p 80:80 --restart unless-stopped ${DOCKER_IMAGE}:${BUILD_NUMBER}
                             "
                         '''
                     }
