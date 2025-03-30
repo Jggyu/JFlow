@@ -67,13 +67,25 @@ pipeline {
                         usernamePassword(credentialsId: 'harbor-credentials', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PASS')
                     ]) {
                         sh '''
-                            mkdir -p ~/.ssh
-                            cp ${SSH_KEY} ~/.ssh/id_rsa
-                            chmod 600 ~/.ssh/id_rsa
-                            ssh-keyscan -H ${SERVER_IP} >> ~/.ssh/known_hosts
+                            echo "현재 사용자: $(whoami)"
+                            echo "현재 디렉토리: $(pwd)"
+                            HOME_DIR=$(eval echo ~$(whoami))
+                            echo "홈 디렉토리: $HOME_DIR"
                             
-                            echo "Deploying to ${SERVER_IP}..."
-                            ssh -o StrictHostKeyChecking=no ${SERVER_USER}@${SERVER_IP} "
+                            mkdir -p $HOME_DIR/.ssh
+                            cp ${SSH_KEY} $HOME_DIR/.ssh/id_rsa
+                            chmod 600 $HOME_DIR/.ssh/id_rsa
+                            
+                            ssh-keyscan -H ${SERVER_IP} > $HOME_DIR/.ssh/known_hosts
+                            chmod 644 $HOME_DIR/.ssh/known_hosts
+                            
+                            echo "SSH 연결 테스트 중..."
+                            ssh -v ${SERVER_USER}@${SERVER_IP} "echo '연결 성공!'"
+                            
+                            echo "배포 시작..."
+                            ssh ${SERVER_USER}@${SERVER_IP} "
+                                echo '===== 배포 시작 =====' &&
+                                
                                 docker login ${REGISTRY} -u ${HARBOR_USER} -p ${HARBOR_PASS} &&
                                 
                                 docker pull ${DOCKER_IMAGE}:${BUILD_NUMBER} &&
@@ -83,7 +95,7 @@ pipeline {
                                 
                                 docker run -d --name jflow-app -p 80:80 --restart unless-stopped ${DOCKER_IMAGE}:${BUILD_NUMBER} &&
                                 
-                                echo '배포 완료: http://${SERVER_IP}:${SERVER_PORT}'
+                                echo '===== 배포 완료 ====='
                             "
                         '''
                     }
