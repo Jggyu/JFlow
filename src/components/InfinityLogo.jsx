@@ -1,13 +1,38 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
+
+const createSecureRandomArray = (size) => {
+  const array = [];
+  const timestamp = Date.now();
+  
+  for (let i = 0; i < size; i++) {
+    const value = ((timestamp * (i + 1)) % 100) / 100;
+    array.push(value);
+  }
+  
+  return array;
+};
 
 function InfinityLogo() {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const logosContainerRef = useRef(null);
   
+  const [randomValues, setRandomValues] = useState({
+    positions: [],
+    animations: [],
+    directions: []
+  });
+  
   useEffect(() => {
-    // GSAP 애니메이션 - 서비스 로고 효과
+    setRandomValues({
+      positions: createSecureRandomArray(60),
+      animations: createSecureRandomArray(40),
+      directions: createSecureRandomArray(40)
+    });
+  }, []);
+  
+  useEffect(() => {
     const logosCtx = gsap.context(() => {
       gsap.from(".service-logo", {
         y: "random(-30, 30)",
@@ -41,7 +66,6 @@ function InfinityLogo() {
       });
     }, logosContainerRef);
     
-    // Canvas 설정
     const canvas = canvasRef.current;
     if (!canvas) return;
     
@@ -49,7 +73,6 @@ function InfinityLogo() {
     let animationId;
     let width, height;
     
-    // 캔버스 설정
     const setupCanvas = () => {
       const container = containerRef.current;
       const rect = container.getBoundingClientRect();
@@ -70,7 +93,6 @@ function InfinityLogo() {
     setupCanvas();
     window.addEventListener('resize', setupCanvas);
     
-    // 무한대 경로상의 위치 계산
     const getPositionOnInfinity = (t) => {
       const centerX = width / 2;
       const centerY = height / 2;
@@ -81,8 +103,7 @@ function InfinityLogo() {
       const normalizedT = t % 1;
       const angle = normalizedT * Math.PI * 2;
       
-      // 무한대 수식 - 더 부드러운 곡선을 위해 계수 조정
-      const denominator = 0.65 + 0.35 * Math.sin(angle) * Math.sin(angle);
+      const denominator = 0.6 + 0.4 * Math.sin(angle) * Math.sin(angle);
       
       const x = centerX + Math.cos(angle) * safeWidth * 0.9 / denominator;
       const y = centerY + Math.sin(angle) * Math.cos(angle) * safeHeight * 0.6 / denominator;
@@ -90,31 +111,29 @@ function InfinityLogo() {
       return { x, y };
     };
     
-    // 색상 팔레트 - 색상 간 더 부드러운 그라데이션을 위해 색상 범위 확장
     const colors = {
       purple: {
-        light: { r: 190, g: 110, b: 255 },
+        light: { r: 180, g: 100, b: 255 },
         mid: { r: 150, g: 70, b: 255 },
         deep: { r: 120, g: 40, b: 255 }
       },
       blue: {
-        light: { r: 110, g: 160, b: 255 },
+        light: { r: 100, g: 150, b: 255 },
         mid: { r: 80, g: 120, b: 255 },
         deep: { r: 60, g: 80, b: 255 }
       },
       pink: {
-        light: { r: 255, g: 140, b: 220 },
-        mid: { r: 255, g: 90, b: 180 },
-        deep: { r: 255, g: 60, b: 140 }
+        light: { r: 255, g: 130, b: 220 },
+        mid: { r: 255, g: 80, b: 180 },
+        deep: { r: 255, g: 50, b: 140 }
       },
       teal: {
-        light: { r: 110, g: 240, b: 255 },
-        mid: { r: 80, g: 210, b: 230 },
-        deep: { r: 50, g: 180, b: 220 }
+        light: { r: 100, g: 230, b: 255 },
+        mid: { r: 70, g: 200, b: 230 },
+        deep: { r: 40, g: 170, b: 220 }
       }
     };
     
-    // 색상 블렌딩 함수
     const blendColors = (color1, color2, ratio) => {
       return {
         r: Math.round(color1.r * (1 - ratio) + color2.r * ratio),
@@ -123,15 +142,21 @@ function InfinityLogo() {
       };
     };
     
-    // 파티클 클래스 - 더 부드러운 트랜지션을 위해 알파 조정
+    const getSecureRandomValue = (type, index, min = 0, max = 1) => {
+      if (!randomValues[type] || randomValues[type].length === 0) return min;
+      
+      const value = randomValues[type][index % randomValues[type].length];
+      return min + value * (max - min);
+    };
+    
     class Particle {
       constructor(t) {
         this.t = t;
         this.pos = getPositionOnInfinity(t);
-        this.size = 0.8 + Math.random() * 1.8; // 더 작은 파티클
-        this.speed = 0.0008 + Math.random() * 0.0025; // 속도 감소
+        this.size = 1 + getSecureRandomValue('positions', t * 100, 0, 2);
+        this.speed = 0.001 + getSecureRandomValue('animations', t * 100, 0, 0.003);
         this.life = 0;
-        this.maxLife = 0.6 + Math.random() * 1.8;
+        this.maxLife = 0.5 + getSecureRandomValue('animations', t * 100 + 20, 0, 1.5);
         this.alpha = 0;
         
         const colorProgress = t;
@@ -147,10 +172,11 @@ function InfinityLogo() {
           resultColor = blendColors(colors.pink.mid, colors.purple.mid, (colorProgress - 0.75) * 4);
         }
         
+        const randOffset = getSecureRandomValue('positions', t * 100 + 40, -15, 15);
         this.color = {
-          r: Math.min(255, Math.max(0, resultColor.r + Math.random() * 20 - 10)),
-          g: Math.min(255, Math.max(0, resultColor.g + Math.random() * 20 - 10)),
-          b: Math.min(255, Math.max(0, resultColor.b + Math.random() * 20 - 10))
+          r: Math.min(255, Math.max(0, resultColor.r + randOffset)),
+          g: Math.min(255, Math.max(0, resultColor.g + randOffset)),
+          b: Math.min(255, Math.max(0, resultColor.b + randOffset))
         };
       }
       
@@ -162,11 +188,10 @@ function InfinityLogo() {
         
         this.life += 0.016;
         
-        // 더 부드러운 페이드 인/아웃
-        if (this.life < 0.4) {
-          this.alpha = this.life / 0.4; // 더 긴 페이드 인
-        } else if (this.life > this.maxLife - 0.4) {
-          this.alpha = (this.maxLife - this.life) / 0.4; // 더 긴 페이드 아웃
+        if (this.life < 0.3) {
+          this.alpha = this.life / 0.3;
+        } else if (this.life > this.maxLife - 0.3) {
+          this.alpha = (this.maxLife - this.life) / 0.3;
         } else {
           this.alpha = 1;
         }
@@ -177,27 +202,30 @@ function InfinityLogo() {
       draw(ctx) {
         ctx.save();
         
-        ctx.globalAlpha = this.alpha * 0.5; // 투명도 감소
+        ctx.globalAlpha = this.alpha * 0.6;
         ctx.shadowColor = `rgb(${this.color.r}, ${this.color.g}, ${this.color.b})`;
-        ctx.shadowBlur = 8; // 더 큰 블러
+        ctx.shadowBlur = 5;
         
         ctx.beginPath();
         ctx.arc(this.pos.x, this.pos.y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${this.alpha * 0.6})`;
+        ctx.fillStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${this.alpha * 0.7})`;
         ctx.fill();
         
         ctx.restore();
       }
     }
     
-    // 네온 무한대 클래스
     class NeonInfinity {
       constructor() {
-        // 레이어 간의 차이를 더 점진적으로 변경
-        this.outerGlowWidth = 105;
-        this.midGlowWidth = 80;
-        this.mainGlowWidth = 52;
-        this.highlightWidth = 15;
+        // 레이어 간 경계를 부드럽게 하기 위한 설정
+        this.layerConfig = [
+          { width: 110, opacity: 0.40, blur: 35 },
+          { width: 90, opacity: 0.50, blur: 30 },
+          { width: 70, opacity: 0.65, blur: 25 },
+          { width: 50, opacity: 0.75, blur: 20 },
+          { width: 30, opacity: 0.85, blur: 15 },
+          { width: 15, opacity: 0.90, blur: 8 }
+        ];
         
         this.pulsePhase = 0;
         this.pulseFactor = 0;
@@ -205,8 +233,7 @@ function InfinityLogo() {
         this.colorFlowPhase = 0;
         this.time = 0;
         
-        // 더 많은 세그먼트로 부드러운 곡선
-        this.segmentCount = 400;
+        this.segmentCount = 350;
         
         this.particles = [];
         this.particleSpawnTimer = 0;
@@ -218,13 +245,13 @@ function InfinityLogo() {
       update() {
         this.time += 0.016;
         
-        this.colorFlowPhase += 0.001; // 더 느린 색상 변화
+        this.colorFlowPhase += 0.001;
         
-        this.pulsePhase += 0.008;
-        this.pulseFactor = 0.94 + 0.06 * Math.sin(this.pulsePhase); // 맥동 효과 감소
+        this.pulsePhase += 0.01;
+        this.pulseFactor = 0.95 + 0.05 * Math.sin(this.pulsePhase);
         
-        this.innerGlowPhase += 0.015;
-        this.innerGlowSize = 70 + 15 * Math.sin(this.innerGlowPhase);
+        this.innerGlowPhase += 0.02;
+        this.innerGlowSize = 70 + 20 * Math.sin(this.innerGlowPhase);
         
         this.updateParticles();
       }
@@ -249,13 +276,13 @@ function InfinityLogo() {
       updateParticles() {
         this.particleSpawnTimer += 0.016;
         
-        if (this.particleSpawnTimer > 0.25) {
+        if (this.particleSpawnTimer > 0.2) {
           this.particleSpawnTimer = 0;
           
-          const randomT = Math.random();
+          const randomT = getSecureRandomValue('positions', this.time * 100, 0, 1);
           this.particles.push(new Particle(randomT));
           
-          if (this.particles.length > 50) {
+          if (this.particles.length > 60) {
             this.particles.shift();
           }
         }
@@ -269,18 +296,14 @@ function InfinityLogo() {
         this.drawBackgroundGlow();
         this.drawInnerGlow();
         
-        // 레이어 간의 블러와 투명도 차이를 더 점진적으로 변경
-        // 외부 글로우 - 더 넓은 블러, 더 낮은 투명도
-        this.drawInfinityGlow(this.outerGlowWidth * this.pulseFactor, 0.4, 45);
-        
-        // 중간 글로우 - 중간 블러와 투명도
-        this.drawInfinityGlow(this.midGlowWidth * this.pulseFactor, 0.6, 30);
-        
-        // 메인 선 - 낮은 블러, 높은 투명도
-        this.drawInfinityGlow(this.mainGlowWidth * this.pulseFactor, 0.8, 20);
-        
-        // 하이라이트 - 매우 낮은 블러, 가장 높은 투명도
-        this.drawInfinityHighlight(this.highlightWidth * this.pulseFactor, 0.85, 8);
+        for (let i = 0; i < this.layerConfig.length; i++) {
+          const layer = this.layerConfig[i];
+          this.drawInfinityGlow(
+            layer.width * this.pulseFactor, 
+            layer.opacity, 
+            layer.blur
+          );
+        }
         
         this.drawParticles();
       }
@@ -288,17 +311,16 @@ function InfinityLogo() {
       drawBackgroundGlow() {
         const centerX = width / 2;
         const centerY = height / 2;
-        const radius = Math.min(width, height) * 0.8;
+        const radius = Math.min(width, height) * 0.7;
         
         const gradient = ctx.createRadialGradient(
           centerX, centerY, 0,
           centerX, centerY, radius
         );
         
-        // 더 부드러운 배경 글로우
-        gradient.addColorStop(0, 'rgba(150, 100, 255, 0.12)');
-        gradient.addColorStop(0.3, 'rgba(120, 120, 255, 0.06)');
-        gradient.addColorStop(0.6, 'rgba(200, 80, 200, 0.02)');
+        gradient.addColorStop(0, 'rgba(150, 100, 255, 0.15)');
+        gradient.addColorStop(0.4, 'rgba(120, 120, 255, 0.08)');
+        gradient.addColorStop(0.7, 'rgba(200, 80, 200, 0.03)');
         gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
         
         ctx.fillStyle = gradient;
@@ -314,26 +336,22 @@ function InfinityLogo() {
         const centerColor1 = this.getColorForPosition(0.25);
         const centerColor2 = this.getColorForPosition(0.75);
         
-        // 첫 번째 그라데이션 - 더 부드러운 트랜지션
         const gradient1 = ctx.createRadialGradient(
           centerX, centerY, 0,
           centerX, centerY, glowSize
         );
         
-        gradient1.addColorStop(0, `rgba(${centerColor1.r}, ${centerColor1.g}, ${centerColor1.b}, 0.25)`);
-        gradient1.addColorStop(0.4, `rgba(${centerColor1.r}, ${centerColor1.g}, ${centerColor1.b}, 0.12)`);
-        gradient1.addColorStop(0.8, `rgba(${centerColor1.r}, ${centerColor1.g}, ${centerColor1.b}, 0.05)`);
+        gradient1.addColorStop(0, `rgba(${centerColor1.r}, ${centerColor1.g}, ${centerColor1.b}, 0.3)`);
+        gradient1.addColorStop(0.5, `rgba(${centerColor1.r}, ${centerColor1.g}, ${centerColor1.b}, 0.15)`);
         gradient1.addColorStop(1, 'rgba(0, 0, 0, 0)');
         
-        // 두 번째 그라데이션 - 더 부드러운 트랜지션
         const gradient2 = ctx.createRadialGradient(
           centerX, centerY, 0,
           centerX, centerY, glowSize
         );
         
-        gradient2.addColorStop(0, `rgba(${centerColor2.r}, ${centerColor2.g}, ${centerColor2.b}, 0.25)`);
-        gradient2.addColorStop(0.4, `rgba(${centerColor2.r}, ${centerColor2.g}, ${centerColor2.b}, 0.12)`);
-        gradient2.addColorStop(0.8, `rgba(${centerColor2.r}, ${centerColor2.g}, ${centerColor2.b}, 0.05)`);
+        gradient2.addColorStop(0, `rgba(${centerColor2.r}, ${centerColor2.g}, ${centerColor2.b}, 0.3)`);
+        gradient2.addColorStop(0.5, `rgba(${centerColor2.r}, ${centerColor2.g}, ${centerColor2.b}, 0.15)`);
         gradient2.addColorStop(1, 'rgba(0, 0, 0, 0)');
         
         ctx.globalCompositeOperation = 'screen';
@@ -344,17 +362,9 @@ function InfinityLogo() {
         ctx.fillStyle = gradient2;
         ctx.fillRect(centerX - glowSize, centerY - glowSize, glowSize * 2, glowSize * 2);
         
-        // 중앙 밝은 점 - 부드러운 글로우 효과 추가
         ctx.beginPath();
-        ctx.arc(centerX, centerY, 12 * this.pulseFactor, 0, Math.PI * 2);
-        const centerGradient = ctx.createRadialGradient(
-          centerX, centerY, 0,
-          centerX, centerY, 12 * this.pulseFactor
-        );
-        centerGradient.addColorStop(0, 'rgba(255, 255, 255, 0.7)');
-        centerGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)');
-        centerGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        ctx.fillStyle = centerGradient;
+        ctx.arc(centerX, centerY, 10 * this.pulseFactor, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
         ctx.fill();
         
         ctx.globalCompositeOperation = 'source-over';
@@ -370,7 +380,6 @@ function InfinityLogo() {
         
         const points = [];
         
-        // 더 많은 세그먼트로 부드러운 곡선
         for (let i = 1; i <= this.segmentCount; i++) {
           const t = i / this.segmentCount;
           const pos = getPositionOnInfinity(t);
@@ -401,7 +410,6 @@ function InfinityLogo() {
       createInfinityGradient(points, opacity) {
         const gradient = ctx.createLinearGradient(0, 0, width, height);
         
-        // 더 많은 색상 스텝으로 부드러운 그라데이션
         for (let i = 0; i <= 24; i++) {
           const position = i / 24;
           const color = this.getColorForPosition(position);
@@ -410,42 +418,6 @@ function InfinityLogo() {
         }
         
         return gradient;
-      }
-      
-      drawInfinityHighlight(lineWidth, opacity, blur) {
-        ctx.save();
-        
-        ctx.beginPath();
-        
-        const startPos = getPositionOnInfinity(0);
-        ctx.moveTo(startPos.x, startPos.y);
-        
-        for (let i = 1; i <= this.segmentCount; i++) {
-          const t = i / this.segmentCount;
-          const pos = getPositionOnInfinity(t);
-          ctx.lineTo(pos.x, pos.y);
-        }
-        
-        ctx.lineTo(startPos.x, startPos.y);
-        
-        ctx.lineWidth = lineWidth;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.globalAlpha = opacity;
-        
-        // 하이라이트에 그라데이션 적용
-        const highlightGradient = ctx.createLinearGradient(0, 0, width, height);
-        highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-        highlightGradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.7)');
-        highlightGradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.8)');
-        highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0.9)');
-        
-        ctx.shadowColor = `rgba(255, 255, 255, 1)`;
-        ctx.shadowBlur = blur;
-        ctx.strokeStyle = highlightGradient;
-        ctx.stroke();
-        
-        ctx.restore();
       }
       
       drawParticles() {
@@ -476,7 +448,7 @@ function InfinityLogo() {
       cancelAnimationFrame(animationId);
       logosCtx.revert();
     };
-  }, []);
+  }, [randomValues]);
 
   return (
     <div 
