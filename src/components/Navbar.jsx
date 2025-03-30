@@ -11,7 +11,6 @@ function Navbar({ user }) {
   
   useEffect(() => {
     const ctx = gsap.context(() => {
-      // 네비게이션 항목 애니메이션
       gsap.from(".nav-item", {
         y: -20,
         opacity: 0,
@@ -20,7 +19,6 @@ function Navbar({ user }) {
         ease: "power3.out"
       });
       
-      // 로고 애니메이션
       gsap.from(".nav-logo", {
         x: -30,
         opacity: 0,
@@ -29,7 +27,6 @@ function Navbar({ user }) {
       });
     }, navbarRef);
     
-    // 스크롤 이벤트
     const handleScroll = () => {
       const navbar = navbarRef.current;
       if (window.scrollY > 10) {
@@ -49,7 +46,6 @@ function Navbar({ user }) {
   }, []);
 
   useEffect(() => {
-    // 모바일 메뉴 애니메이션
     if (isOpen && menuRef.current) {
       gsap.fromTo(
         menuRef.current,
@@ -76,22 +72,13 @@ function Navbar({ user }) {
           <div className="flex items-center">
             <div className="flex-shrink-0 nav-logo">
               <Link to="/" className="group">
-                <img className="h-10 transform transition-transform duration-300 group-hover:scale-105" 
+                <img className="h-20 transform transition-transform duration-300 group-hover:scale-105" 
                      src="/img/J-logo.png" alt="J-Flow Logo" />
               </Link>
             </div>
             <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-4">
-                {['서비스 신청', '문의', 'About'].map((item, index) => (
-                  <Link 
-                    key={index}
-                    to={item === '서비스 신청' ? '/' : `/${item.toLowerCase()}`} 
-                    className="nav-item relative px-3 py-2 text-sm font-medium text-white hover:text-white transition-colors"
-                  >
-                    {item}
-                    <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-300 group-hover:w-full"></span>
-                  </Link>
-                ))}
+                {/* 링크 제거됨 */}
               </div>
             </div>
           </div>
@@ -108,9 +95,10 @@ function Navbar({ user }) {
               </div>
             ) : (
               <div className="flex items-center space-x-3">
+                {/* 비활성화된 로그인 및 회원가입 버튼 */}
                 <button
-                  onClick={() => navigate('/login')}
-                  className="px-4 py-1.5 bg-white/10 text-white rounded-full border border-white/20 backdrop-blur-sm hover:bg-white/20 transition-all duration-200"
+                  disabled
+                  className="px-4 py-1.5 bg-white/5 text-white/40 rounded-full border border-white/10 backdrop-blur-sm cursor-not-allowed opacity-50"
                 >
                   로그인 및 회원가입
                 </button>
@@ -133,21 +121,12 @@ function Navbar({ user }) {
         </div>
       </div>
 
-      {/* 모바일 메뉴 */}
       <div 
         ref={menuRef} 
         className={`md:hidden bg-gray-900/80 backdrop-blur-md border-b border-jflow-purple/20 overflow-hidden transition-all duration-300 ${isOpen ? '' : 'h-0 opacity-0'}`}
       >
         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-          {['서비스 신청', '문의', 'About'].map((item, index) => (
-            <Link 
-              key={index}
-              to={item === '서비스 신청' ? '/' : `/${item.toLowerCase()}`}
-              className="block px-3 py-2 rounded-md text-base font-medium text-white hover:bg-jflow-purple/20 transition-colors duration-200"
-            >
-              {item}
-            </Link>
-          ))}
+          {/* 링크 제거됨 */}
         </div>
         <div className="pt-4 pb-3 border-t border-white/10">
           {user ? (
@@ -164,9 +143,10 @@ function Navbar({ user }) {
             </div>
           ) : (
             <div className="px-2 py-2">
+              {/* 비활성화된 모바일 로그인 및 회원가입 버튼 */}
               <button
-                onClick={() => navigate('/login')}
-                className="w-full px-3 py-2 bg-white/10 text-white rounded-md hover:bg-white/20 transition-all duration-200"
+                disabled
+                className="w-full px-3 py-2 bg-white/5 text-white/40 rounded-md cursor-not-allowed opacity-50"
               >
                 로그인 및 회원가입
               </button>

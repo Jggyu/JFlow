@@ -16,10 +16,16 @@ import HeroSection from '../components/HeroSection';
 import ServiceCard from '../components/ServiceCard';
 import ProcessDiagram from '../components/ProcessDiagram';
 
-// GSAP 플러그인 등록
 gsap.registerPlugin(ScrollTrigger);
 
-// 서비스 데이터 - 순서 변경
+const ALLOWED_SERVICES = [
+  '/j-gitlab',
+  '/j-jenkins',
+  '/j-harbor',
+  '/j-sonarqube',
+  '/j-grafana'
+];
+
 const services = [
   { 
     name: 'GitLab', 
@@ -66,22 +72,28 @@ const services = [
 function Dashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  
-  // 요소 레퍼런스
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const servicesRef = useRef(null);
   
   useEffect(() => {
-    // 사용자 인증 정보 확인
     const userStr = localStorage.getItem('user');
     const token = localStorage.getItem('token');
     
     if (userStr && token) {
-      setUser(JSON.parse(userStr));
+      try {
+        const parsedUser = JSON.parse(userStr);
+        setUser(parsedUser);
+        
+        // 백엔드 연동 토큰 검증
+        // validateToken(token);
+      } catch (error) {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      }
     }
     
-    // GSAP 애니메이션
     const ctx = gsap.context(() => {
-      // 서비스 섹션 타이틀 애니메이션
       gsap.from(".services-title", {
         scrollTrigger: {
           trigger: servicesRef.current,
@@ -93,7 +105,6 @@ function Dashboard() {
         ease: "power3.out"
       });
       
-      // 서비스 카드 애니메이션
       const serviceCards = servicesRef.current.querySelectorAll('.service-card');
       gsap.from(serviceCards, {
         scrollTrigger: {
@@ -108,10 +119,37 @@ function Dashboard() {
       });
     });
     
-    return () => ctx.revert(); // 클린업
+    return () => ctx.revert();
   }, []);
 
+  const validateToken = async (token) => {
+    try {
+      setLoading(true);
+      // 백엔드 API 
+      // const response = await fetch('/api/auth/validate', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //     'Authorization': `Bearer ${token}`
+      //   }
+      // });
+      
+      setLoading(false);
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+      setUser(null);
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+    }
+  };
+
   const handleServiceClick = (path) => {
+    if (!ALLOWED_SERVICES.includes(path)) {
+      navigate('/404');
+      return;
+    }
+    
     if (!user) {
       const tl = gsap.timeline();
       tl.to('.login-alert', {
@@ -129,11 +167,9 @@ function Dashboard() {
         ease: "power3.in"
       });
       
-      setTimeout(() => {
-        navigate('/signup');
-      }, 3500);
       return;
     }
+    
     navigate(path);
   };
 
@@ -142,19 +178,15 @@ function Dashboard() {
       <div className="relative z-10">
         <Navbar user={user} />
         
-        {/* 로그인 알림 */}
         <div className="login-alert fixed top-20 left-1/2 transform -translate-x-1/2 -translate-y-full bg-jflow-purple text-white px-6 py-4 rounded-lg shadow-2xl z-50 opacity-0 invisible flex items-center space-x-2">
           <ExclamationTriangleIcon className="h-5 w-5 text-yellow-300" />
-          <span>서비스 이용을 위해 로그인이 필요합니다. 로그인 페이지로 이동합니다.</span>
+          <span>서비스 이용을 위해 로그인이 필요합니다.</span>
         </div>
         
-        {/* 히어로 섹션 */}
         <HeroSection user={user} />
         
-        {/* 프로세스 다이어그램 */}
         <ProcessDiagram />
         
-        {/* 서비스 소개 섹션 */}
         <section id="services-section" ref={servicesRef} className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <div className="mb-12 text-center">
             <h2 className="services-title inline-block text-3xl font-bold mb-4 bg-gradient-to-r from-purple-400 via-indigo-500 to-purple-400 bg-[length:200%_auto] text-transparent bg-clip-text">
@@ -167,7 +199,7 @@ function Dashboard() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 px-6">
-            {services.map((service, index) => (
+            {services.map((service) => (
               <div key={service.name} className="service-card h-full">
                 <ServiceCard 
                   service={service}
@@ -178,7 +210,6 @@ function Dashboard() {
           </div>
         </section>
         
-        {/* 푸터 */}
         <footer className="bg-gray-900 py-10 border-t border-gray-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row justify-between items-center">
