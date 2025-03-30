@@ -36,17 +36,9 @@ function ProcessDiagram() {
   
   useEffect(() => {
     const ctx = gsap.context(() => {
-      gsap.from(imageRef.current, {
-        y: 30,
-        opacity: 0,
-        duration: 1.2,
-        ease: "power3.out",
-        scrollTrigger: {
-          trigger: diagramRef.current,
-          start: "top 80%",
-        }
-      });
+      // 이미지의 스크롤 애니메이션 제거 (아래에서 올라오는 효과 없앰)
       
+      // 제목 애니메이션은 유지 (선택사항)
       gsap.from(".process-title", {
         y: 30,
         opacity: 0,

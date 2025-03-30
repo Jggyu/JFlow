@@ -1,36 +1,29 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 
-const createSecureRandomArray = (size) => {
-  const array = [];
-  const timestamp = Date.now();
-  
-  for (let i = 0; i < size; i++) {
-    const value = ((timestamp * (i + 1)) % 100) / 100;
-    array.push(value);
+const SecureRandom = {
+  random() {
+    if (window.crypto && window.crypto.getRandomValues) {
+      const array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      return array[0] / (0xffffffff + 1);
+    }
+    return Math.random();
+  },
+
+  range(min, max) {
+    return min + this.random() * (max - min);
+  },
+
+  integer(min, max) {
+    return Math.floor(this.range(min, max + 1));
   }
-  
-  return array;
 };
 
 function InfinityLogo() {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const logosContainerRef = useRef(null);
-  
-  const [randomValues, setRandomValues] = useState({
-    positions: [],
-    animations: [],
-    directions: []
-  });
-  
-  useEffect(() => {
-    setRandomValues({
-      positions: createSecureRandomArray(60),
-      animations: createSecureRandomArray(40),
-      directions: createSecureRandomArray(40)
-    });
-  }, []);
   
   useEffect(() => {
     const logosCtx = gsap.context(() => {
@@ -75,6 +68,8 @@ function InfinityLogo() {
     
     const setupCanvas = () => {
       const container = containerRef.current;
+      if (!container) return;
+      
       const rect = container.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
       
@@ -142,21 +137,14 @@ function InfinityLogo() {
       };
     };
     
-    const getSecureRandomValue = (type, index, min = 0, max = 1) => {
-      if (!randomValues[type] || randomValues[type].length === 0) return min;
-      
-      const value = randomValues[type][index % randomValues[type].length];
-      return min + value * (max - min);
-    };
-    
     class Particle {
       constructor(t) {
         this.t = t;
         this.pos = getPositionOnInfinity(t);
-        this.size = 1 + getSecureRandomValue('positions', t * 100, 0, 2);
-        this.speed = 0.001 + getSecureRandomValue('animations', t * 100, 0, 0.003);
+        this.size = 1 + SecureRandom.range(0, 3); // 파티클 크기 다양화
+        this.speed = 0.0005 + SecureRandom.range(0, 0.002); // 속도 감소
         this.life = 0;
-        this.maxLife = 0.5 + getSecureRandomValue('animations', t * 100 + 20, 0, 1.5);
+        this.maxLife = 1.0 + SecureRandom.range(0, 2.0); // 수명 늘림
         this.alpha = 0;
         
         const colorProgress = t;
@@ -172,11 +160,11 @@ function InfinityLogo() {
           resultColor = blendColors(colors.pink.mid, colors.purple.mid, (colorProgress - 0.75) * 4);
         }
         
-        const randOffset = getSecureRandomValue('positions', t * 100 + 40, -15, 15);
+        const variance = SecureRandom.range(-20, 20);
         this.color = {
-          r: Math.min(255, Math.max(0, resultColor.r + randOffset)),
-          g: Math.min(255, Math.max(0, resultColor.g + randOffset)),
-          b: Math.min(255, Math.max(0, resultColor.b + randOffset))
+          r: Math.min(255, Math.max(0, resultColor.r + variance)),
+          g: Math.min(255, Math.max(0, resultColor.g + variance)),
+          b: Math.min(255, Math.max(0, resultColor.b + variance))
         };
       }
       
@@ -188,10 +176,10 @@ function InfinityLogo() {
         
         this.life += 0.016;
         
-        if (this.life < 0.3) {
-          this.alpha = this.life / 0.3;
-        } else if (this.life > this.maxLife - 0.3) {
-          this.alpha = (this.maxLife - this.life) / 0.3;
+        if (this.life < 0.4) {
+          this.alpha = (this.life / 0.4) * (this.life / 0.4); // 이지잉 적용
+        } else if (this.life > this.maxLife - 0.4) {
+          this.alpha = ((this.maxLife - this.life) / 0.4) * ((this.maxLife - this.life) / 0.4);
         } else {
           this.alpha = 1;
         }
@@ -202,13 +190,24 @@ function InfinityLogo() {
       draw(ctx) {
         ctx.save();
         
-        ctx.globalAlpha = this.alpha * 0.6;
+        ctx.globalAlpha = this.alpha * 0.45; // 투명도 감소
         ctx.shadowColor = `rgb(${this.color.r}, ${this.color.g}, ${this.color.b})`;
-        ctx.shadowBlur = 5;
+        ctx.shadowBlur = 8; // 블러 증가
         
         ctx.beginPath();
-        ctx.arc(this.pos.x, this.pos.y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${this.alpha * 0.7})`;
+        
+        // 원형 대신 가우시안 형태의 그라데이션으로 파티클 그리기
+        const gradient = ctx.createRadialGradient(
+          this.pos.x, this.pos.y, 0,
+          this.pos.x, this.pos.y, this.size * 2
+        );
+        
+        gradient.addColorStop(0, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${this.alpha * 0.8})`);
+        gradient.addColorStop(0.5, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${this.alpha * 0.3})`);
+        gradient.addColorStop(1, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 0)`);
+        
+        ctx.arc(this.pos.x, this.pos.y, this.size * 2, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
         ctx.fill();
         
         ctx.restore();
@@ -217,23 +216,19 @@ function InfinityLogo() {
     
     class NeonInfinity {
       constructor() {
-        // 레이어 간 경계를 부드럽게 하기 위한 설정
-        this.layerConfig = [
-          { width: 110, opacity: 0.40, blur: 35 },
-          { width: 90, opacity: 0.50, blur: 30 },
-          { width: 70, opacity: 0.65, blur: 25 },
-          { width: 50, opacity: 0.75, blur: 20 },
-          { width: 30, opacity: 0.85, blur: 15 },
-          { width: 15, opacity: 0.90, blur: 8 }
-        ];
+        this.outerGlowWidth = 80; // 너비 축소
+        this.midGlowWidth = 50; // 너비 축소
+        this.mainGlowWidth = 28; // 너비 축소
+        this.highlightWidth = 8; // 너비 축소
         
         this.pulsePhase = 0;
         this.pulseFactor = 0;
         
         this.colorFlowPhase = 0;
+        
         this.time = 0;
         
-        this.segmentCount = 350;
+        this.segmentCount = 400; // 세그먼트 증가
         
         this.particles = [];
         this.particleSpawnTimer = 0;
@@ -245,13 +240,13 @@ function InfinityLogo() {
       update() {
         this.time += 0.016;
         
-        this.colorFlowPhase += 0.001;
+        this.colorFlowPhase += 0.001; // 속도 감소
         
-        this.pulsePhase += 0.01;
-        this.pulseFactor = 0.95 + 0.05 * Math.sin(this.pulsePhase);
+        this.pulsePhase += 0.008; // 맥동 속도 감소
+        this.pulseFactor = 0.94 + 0.06 * Math.sin(this.pulsePhase); // 맥동 범위 감소
         
-        this.innerGlowPhase += 0.02;
-        this.innerGlowSize = 70 + 20 * Math.sin(this.innerGlowPhase);
+        this.innerGlowPhase += 0.015; // 내부 글로우 속도 감소
+        this.innerGlowSize = 80 + 15 * Math.sin(this.innerGlowPhase); // 내부 글로우 크기 증가
         
         this.updateParticles();
       }
@@ -276,13 +271,13 @@ function InfinityLogo() {
       updateParticles() {
         this.particleSpawnTimer += 0.016;
         
-        if (this.particleSpawnTimer > 0.2) {
+        if (this.particleSpawnTimer > 0.15) { // 파티클 생성 간격 감소
           this.particleSpawnTimer = 0;
           
-          const randomT = getSecureRandomValue('positions', this.time * 100, 0, 1);
+          const randomT = SecureRandom.random();
           this.particles.push(new Particle(randomT));
           
-          if (this.particles.length > 60) {
+          if (this.particles.length > 80) { // 파티클 최대 개수 증가
             this.particles.shift();
           }
         }
@@ -294,16 +289,16 @@ function InfinityLogo() {
         ctx.clearRect(-width * 0.5, 0, width * 2.0, height);
         
         this.drawBackgroundGlow();
+        
         this.drawInnerGlow();
         
-        for (let i = 0; i < this.layerConfig.length; i++) {
-          const layer = this.layerConfig[i];
-          this.drawInfinityGlow(
-            layer.width * this.pulseFactor, 
-            layer.opacity, 
-            layer.blur
-          );
-        }
+        this.drawInfinityGlow(this.outerGlowWidth * this.pulseFactor, 0.3, 45); // 투명도 감소, 블러 증가
+        
+        this.drawInfinityGlow(this.midGlowWidth * this.pulseFactor, 0.5, 25); // 투명도 감소, 블러 증가
+        
+        this.drawInfinityGlow(this.mainGlowWidth * this.pulseFactor, 0.7, 15); // 투명도 감소, 블러 증가
+        
+        this.drawInfinityHighlight(this.highlightWidth * this.pulseFactor, 0.7, 6); // 투명도 감소, 블러 증가
         
         this.drawParticles();
       }
@@ -311,16 +306,19 @@ function InfinityLogo() {
       drawBackgroundGlow() {
         const centerX = width / 2;
         const centerY = height / 2;
-        const radius = Math.min(width, height) * 0.7;
+        const radius = Math.min(width, height) * 0.85; // 반경 증가
         
         const gradient = ctx.createRadialGradient(
           centerX, centerY, 0,
           centerX, centerY, radius
         );
         
-        gradient.addColorStop(0, 'rgba(150, 100, 255, 0.15)');
-        gradient.addColorStop(0.4, 'rgba(120, 120, 255, 0.08)');
-        gradient.addColorStop(0.7, 'rgba(200, 80, 200, 0.03)');
+        // 더 부드러운 그라데이션을 위한 중간 단계 추가
+        gradient.addColorStop(0, 'rgba(150, 100, 255, 0.12)');
+        gradient.addColorStop(0.2, 'rgba(140, 110, 255, 0.10)');
+        gradient.addColorStop(0.4, 'rgba(120, 120, 255, 0.06)');
+        gradient.addColorStop(0.6, 'rgba(180, 100, 220, 0.04)');
+        gradient.addColorStop(0.8, 'rgba(200, 80, 200, 0.02)');
         gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
         
         ctx.fillStyle = gradient;
@@ -341,8 +339,10 @@ function InfinityLogo() {
           centerX, centerY, glowSize
         );
         
-        gradient1.addColorStop(0, `rgba(${centerColor1.r}, ${centerColor1.g}, ${centerColor1.b}, 0.3)`);
-        gradient1.addColorStop(0.5, `rgba(${centerColor1.r}, ${centerColor1.g}, ${centerColor1.b}, 0.15)`);
+        // 더 부드러운 그라데이션
+        gradient1.addColorStop(0, `rgba(${centerColor1.r}, ${centerColor1.g}, ${centerColor1.b}, 0.25)`);
+        gradient1.addColorStop(0.3, `rgba(${centerColor1.r}, ${centerColor1.g}, ${centerColor1.b}, 0.15)`);
+        gradient1.addColorStop(0.6, `rgba(${centerColor1.r}, ${centerColor1.g}, ${centerColor1.b}, 0.08)`);
         gradient1.addColorStop(1, 'rgba(0, 0, 0, 0)');
         
         const gradient2 = ctx.createRadialGradient(
@@ -350,8 +350,10 @@ function InfinityLogo() {
           centerX, centerY, glowSize
         );
         
-        gradient2.addColorStop(0, `rgba(${centerColor2.r}, ${centerColor2.g}, ${centerColor2.b}, 0.3)`);
-        gradient2.addColorStop(0.5, `rgba(${centerColor2.r}, ${centerColor2.g}, ${centerColor2.b}, 0.15)`);
+        // 더 부드러운 그라데이션
+        gradient2.addColorStop(0, `rgba(${centerColor2.r}, ${centerColor2.g}, ${centerColor2.b}, 0.25)`);
+        gradient2.addColorStop(0.3, `rgba(${centerColor2.r}, ${centerColor2.g}, ${centerColor2.b}, 0.15)`);
+        gradient2.addColorStop(0.6, `rgba(${centerColor2.r}, ${centerColor2.g}, ${centerColor2.b}, 0.08)`);
         gradient2.addColorStop(1, 'rgba(0, 0, 0, 0)');
         
         ctx.globalCompositeOperation = 'screen';
@@ -363,8 +365,8 @@ function InfinityLogo() {
         ctx.fillRect(centerX - glowSize, centerY - glowSize, glowSize * 2, glowSize * 2);
         
         ctx.beginPath();
-        ctx.arc(centerX, centerY, 10 * this.pulseFactor, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.arc(centerX, centerY, 8 * this.pulseFactor, 0, Math.PI * 2); // 크기 감소
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)'; // 투명도 감소
         ctx.fill();
         
         ctx.globalCompositeOperation = 'source-over';
@@ -397,7 +399,7 @@ function InfinityLogo() {
         if (blur > 0) {
           ctx.globalAlpha = opacity;
           const centerColor = this.getColorForPosition(0.5);
-          ctx.shadowColor = `rgba(${centerColor.r}, ${centerColor.g}, ${centerColor.b}, 1)`;
+          ctx.shadowColor = `rgba(${centerColor.r}, ${centerColor.g}, ${centerColor.b}, 0.8)`; // 투명도 감소
           ctx.shadowBlur = blur;
         }
         
@@ -410,6 +412,7 @@ function InfinityLogo() {
       createInfinityGradient(points, opacity) {
         const gradient = ctx.createLinearGradient(0, 0, width, height);
         
+        // 더 많은 색상 단계 추가
         for (let i = 0; i <= 24; i++) {
           const position = i / 24;
           const color = this.getColorForPosition(position);
@@ -418,6 +421,34 @@ function InfinityLogo() {
         }
         
         return gradient;
+      }
+      
+      drawInfinityHighlight(lineWidth, opacity, blur) {
+        ctx.save();
+        
+        ctx.beginPath();
+        
+        const startPos = getPositionOnInfinity(0);
+        ctx.moveTo(startPos.x, startPos.y);
+        
+        for (let i = 1; i <= this.segmentCount; i++) {
+          const t = i / this.segmentCount;
+          const pos = getPositionOnInfinity(t);
+          ctx.lineTo(pos.x, pos.y);
+        }
+        
+        ctx.lineTo(startPos.x, startPos.y);
+        
+        ctx.lineWidth = lineWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalAlpha = opacity;
+        ctx.shadowColor = `rgba(255, 255, 255, 0.8)`; // 투명도 감소
+        ctx.shadowBlur = blur;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+        ctx.stroke();
+        
+        ctx.restore();
       }
       
       drawParticles() {
@@ -448,7 +479,7 @@ function InfinityLogo() {
       cancelAnimationFrame(animationId);
       logosCtx.revert();
     };
-  }, [randomValues]);
+  }, []);
 
   return (
     <div 
