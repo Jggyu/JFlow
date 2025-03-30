@@ -13,7 +13,7 @@ pipeline {
         DOCKER_IMAGE = "${REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}"
         DOCKER_CREDENTIALS_ID = 'harbor-credentials'
         SERVER_IP = '113.198.66.77'
-        SERVER_PORT = '18196'
+        SERVER_PORT = '19196'
         SERVER_USER = 'ubuntu'
     }
 
@@ -67,24 +67,17 @@ pipeline {
                         usernamePassword(credentialsId: 'harbor-credentials', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PASS')
                     ]) {
                         sh '''
-                            echo "현재 사용자: $(whoami)"
-                            echo "현재 디렉토리: $(pwd)"
-                            HOME_DIR=$(eval echo ~$(whoami))
-                            echo "홈 디렉토리: $HOME_DIR"
+                            mkdir -p ~/.ssh
+                            cp ${SSH_KEY} ~/.ssh/id_rsa
+                            chmod 600 ~/.ssh/id_rsa
                             
-                            mkdir -p $HOME_DIR/.ssh
-                            cp ${SSH_KEY} $HOME_DIR/.ssh/id_rsa
-                            chmod 600 $HOME_DIR/.ssh/id_rsa
+                            ssh-keyscan -p ${SERVER_PORT} -H ${SERVER_IP} > ~/.ssh/known_hosts
+                            chmod 644 ~/.ssh/known_hosts
                             
-                            ssh-keyscan -H ${SERVER_IP} > $HOME_DIR/.ssh/known_hosts
-                            chmod 644 $HOME_DIR/.ssh/known_hosts
+                            echo "=== 배포 시작 ==="
                             
-                            echo "SSH 연결 테스트 중..."
-                            ssh -v ${SERVER_USER}@${SERVER_IP} "echo '연결 성공!'"
-                            
-                            echo "배포 시작..."
-                            ssh ${SERVER_USER}@${SERVER_IP} "
-                                echo '===== 배포 시작 =====' &&
+                            ssh -p ${SERVER_PORT} ${SERVER_USER}@${SERVER_IP} "
+                                echo '=== 서버 연결 성공 ===' &&
                                 
                                 docker login ${REGISTRY} -u ${HARBOR_USER} -p ${HARBOR_PASS} &&
                                 
@@ -95,7 +88,7 @@ pipeline {
                                 
                                 docker run -d --name jflow-app -p 80:80 --restart unless-stopped ${DOCKER_IMAGE}:${BUILD_NUMBER} &&
                                 
-                                echo '===== 배포 완료 ====='
+                                echo '=== 배포 완료 ==='
                             "
                         '''
                     }
