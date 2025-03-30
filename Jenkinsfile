@@ -9,7 +9,7 @@ pipeline {
     environment {
         REGISTRY = 'harbor.jbnu.ac.kr'
         HARBOR_PROJECT = 'zmfltmvl'
-        IMAGE_NAME = 'zmfltmvl-jflow'
+        IMAGE_NAME = 'jflow'
         
         DOCKER_IMAGE = "${REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}"
         DOCKER_CREDENTIALS_ID = 'harbor-credentials'
@@ -24,15 +24,6 @@ pipeline {
             }
         }
 
-        stage('Build React App') {
-            steps {
-                container('node') {
-                    sh 'npm ci'
-                    sh 'npm run build'
-                }
-            }
-        }
-
         stage('SonarQube Analysis') {
             steps {
                 container('sonar-scanner') {
@@ -42,7 +33,6 @@ pipeline {
                             -Dsonar.projectKey=${HARBOR_PROJECT}-${IMAGE_NAME} \\
                             -Dsonar.projectName=${HARBOR_PROJECT}-${IMAGE_NAME} \\
                             -Dsonar.sources=src \\
-                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \\
                             -Dsonar.exclusions=**/node_modules/**,**/*.test.js,**/*.spec.js \\
                             -Dsonar.login=${SONAR_TOKEN}
                         """
