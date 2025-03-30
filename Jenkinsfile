@@ -10,11 +10,8 @@ pipeline {
         REGISTRY = 'harbor.jbnu.ac.kr'
         HARBOR_PROJECT = 'zmfltmvl'
         IMAGE_NAME = 'jflow'
-        
         DOCKER_IMAGE = "${REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}"
         DOCKER_CREDENTIALS_ID = 'harbor-credentials'
-        SONAR_TOKEN = credentials("sonarqube-credentials")
-        HARBOR_CREDENTIALS = credentials("${DOCKER_CREDENTIALS_ID}")
     }
 
     stages {
@@ -24,39 +21,23 @@ pipeline {
             }
         }
 
-        stage('SonarQube Analysis') {
-            steps {
-                container('sonar-scanner') {
-                    withSonarQubeEnv('sonarqube') {
-                        sh """
-                            sonar-scanner \\
-                            -Dsonar.projectKey=${HARBOR_PROJECT}-${IMAGE_NAME} \\
-                            -Dsonar.projectName=${HARBOR_PROJECT}-${IMAGE_NAME} \\
-                            -Dsonar.sources=src \\
-                            -Dsonar.exclusions=**/node_modules/**,**/*.test.js,**/*.spec.js \\
-                            -Dsonar.login=${SONAR_TOKEN}
-                        """
-                    }
-                }
-            }
-        }
-
         stage('Create Docker Config') {
             steps {
-                script {
-                    sh """
+                withCredentials([usernamePassword(credentialsId: 'harbor-credentials', 
+                                                usernameVariable: 'HARBOR_USER', 
+                                                passwordVariable: 'HARBOR_PASS')]) {
+                    sh '''
                         mkdir -p /home/jenkins/agent/.docker
-                        echo '{"auths":{"${REGISTRY}":{"username":"${HARBOR_CREDENTIALS_USR}","password":"${HARBOR_CREDENTIALS_PSW}"}}}' > /home/jenkins/agent/.docker/config.json
-                        cat /home/jenkins/agent/.docker/config.json
+                        echo '{"auths":{"'''+REGISTRY+'''":{"username":"'''+HARBOR_USER+'''","password":"'''+HARBOR_PASS+'''"}}}' > /home/jenkins/agent/.docker/config.json
                         cp /home/jenkins/agent/.docker/config.json /home/jenkins/agent/config.json
-                    """
+                    '''
                     
                     container('kaniko') {
-                        sh """
+                        sh '''
                             mkdir -p /kaniko/.docker
                             cp /home/jenkins/agent/config.json /kaniko/.docker/config.json
                             ls -la /kaniko/.docker
-                        """
+                        '''
                     }
                 }
             }
@@ -65,12 +46,12 @@ pipeline {
         stage('Build and Push with Kaniko') {
             steps {
                 container('kaniko') {
-                    sh """
+                    sh '''
                         /kaniko/executor \\
-                        --context=\$(pwd) \\
+                        --context=$(pwd) \\
                         --destination=${DOCKER_IMAGE}:${BUILD_NUMBER} \\
                         --cleanup
-                    """
+                    '''
                 }
             }
         }
