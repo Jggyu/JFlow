@@ -165,7 +165,7 @@ function HeroSection({ user }) {
           
           <div className="max-w-2xl mx-auto text-white">
             <h1 className="hero-title text-4xl md:text-6xl font-bold mb-6 tracking-tighter">
-              J-Flow DevOps 플랫폼
+              J-Flow DevOps 플랫폼 test
             </h1>
             
             <p className="hero-subtitle text-lg md:text-xl text-gray-300 mb-6">
